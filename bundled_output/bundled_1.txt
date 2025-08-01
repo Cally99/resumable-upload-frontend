@@ -1,0 +1,1006 @@
+// package.json
+{
+  "name": "resumable-upload-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
+    "axios": "^1.5.0",
+    "events": "^3.3.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1",
+    "web-vitals": "^2.1.4"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
+
+
+// src/App.css
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  padding: 20px;
+  color: white;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.App-title {
+  font-size: 1.5em;
+  margin: 0;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// src/App.js
+import React from 'react';
+import UploadDropzone from './components/UploadDropzone';
+import UploadList from './components/UploadList';
+import './App.css';
+
+function App() {
+  return (
+    <div className="App">
+      <div className="container">
+        <h1>Resumable File Upload</h1>
+        <UploadDropzone />
+        <UploadList />
+      </div>
+    </div>
+  );
+}
+
+export default App;
+
+// src/components/ActiveUpload.css
+.active-upload {
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  background-color: #f9f9f9;
+}
+
+.upload-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.upload-header h3 {
+  margin: 0;
+  font-size: 1.1em;
+  color: #333;
+}
+
+.file-size {
+  font-size: 0.9em;
+  color: #888;
+  background-color: #eee;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.upload-details {
+  margin-top: 15px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  font-weight: bold;
+}
+
+.status-pending {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.status-uploading {
+  background-color: #d1ecf1;
+  color: #0c5460;
+}
+
+.status-paused {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.status-completed {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-failed {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+// src/components/ActiveUpload.js
+import React from 'react';
+import UploadControls from './UploadControls';
+import UploadProgress from './UploadProgress';
+import uploadManager from '../services/UploadManager';
+import './ActiveUpload.css';
+
+const ActiveUpload = ({ upload }) => {
+  // Create callback functions that connect to UploadManager methods
+  const handleUpload = async (upload) => {
+    console.log('🚀 Starting upload for:', upload.uploadId);
+    try {
+      await uploadManager.startUpload(upload.uploadId);
+    } catch (error) {
+      console.error('Error starting upload:', error);
+    }
+  };
+
+  const handlePause = async (upload) => {
+    console.log('⏸️ Pausing upload for:', upload.uploadId);
+    try {
+      await uploadManager.pauseUpload(upload.uploadId);
+    } catch (error) {
+      console.error('Error pausing upload:', error);
+    }
+  };
+
+  const handleResume = async (upload) => {
+    console.log('▶️ Resuming upload for:', upload.uploadId);
+    try {
+      await uploadManager.resumeUpload(upload.uploadId);
+    } catch (error) {
+      console.error('Error resuming upload:', error);
+    }
+  };
+
+  const handleCancel = async (upload) => {
+    console.log('❌ Canceling upload for:', upload.uploadId);
+    try {
+      await uploadManager.cancelUpload(upload.uploadId);
+    } catch (error) {
+      console.error('Error canceling upload:', error);
+    }
+  };
+
+  return (
+    <div className="active-upload">
+      <div className="upload-header">
+        <h3>{upload.filename}</h3>
+        <span className="file-size">
+          {(upload.filesize / (1024 * 1024)).toFixed(2)} MB
+        </span>
+      </div>
+      
+      <UploadProgress upload={upload} />
+      <UploadControls
+        upload={upload}
+        onUpload={handleUpload}
+        onPause={handlePause}
+        onResume={handleResume}
+        onCancel={handleCancel}
+      />
+      
+      <div className="upload-details">
+        <span className={`status-badge status-${upload.status}`}>
+          {upload.status.charAt(0).toUpperCase() + upload.status.slice(1)}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+export default ActiveUpload;
+
+// src/components/UploadControls.css
+.upload-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: all 0.3s ease;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background-color: #545b62;
+}
+
+.btn-danger {
+  background-color: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #c82333;
+}
+
+// src/components/UploadControls.js
+import React from 'react';
+import './UploadControls.css';
+
+const UploadControls = ({ upload, onUpload, onPause, onResume, onCancel }) => {
+  const handleStart = () => {
+    console.log('🔍 DEBUG: Start button clicked for upload:', upload.uploadId);
+    console.log('🔍 DEBUG: onUpload callback provided:', !!onUpload);
+    if (onUpload) {
+      console.log('🔍 DEBUG: Calling onUpload callback');
+      onUpload(upload);
+    } else {
+      console.error('❌ DEBUG: No onUpload callback provided - this is the bug!');
+    }
+  };
+
+  const handlePause = () => {
+    if (onPause) onPause(upload);
+  };
+
+  const handleResume = () => {
+    if (onResume) onResume(upload);
+  };
+
+  const handleCancel = () => {
+    if (onCancel) onCancel(upload);
+  };
+
+  return (
+    <div className="upload-controls">
+      {upload.status === 'pending' || upload.status === 'paused' ? (
+        <button 
+          onClick={upload.status === 'pending' ? handleStart : handleResume}
+          className="btn btn-primary"
+        >
+          {upload.status === 'pending' ? 'Start Upload' : 'Resume'}
+        </button>
+      ) : upload.status === 'uploading' ? (
+        <button onClick={handlePause} className="btn btn-secondary">
+          Pause
+        </button>
+      ) : null}
+      
+      {(upload.status === 'uploading' || upload.status === 'paused') && (
+        <button onClick={handleCancel} className="btn btn-danger">
+          Cancel
+        </button>
+      )}
+    </div>
+  );
+};
+
+export default UploadControls;
+
+// src/components/UploadDropzone.css
+.upload-container {
+  margin-bottom: 20px;
+}
+
+.dropzone {
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background-color: white;
+  position: relative;
+}
+
+.dropzone:hover, .dropzone.dragging {
+  border-color: #007bff;
+  background-color: #f8f9fa;
+}
+
+.dropzone-content p {
+  margin: 10px 0;
+  color: #555;
+}
+
+.file-size-limit {
+  font-size: 0.9em;
+  color: #888;
+}
+
+.file-input {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.selected-file {
+  margin-top: 10px;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  font-size: 0.9em;
+  color: #555;
+}
+
+// src/components/UploadDropzone.js
+import React, { useState, useRef } from 'react';
+import UploadManager from '../services/UploadManager';
+import './UploadDropzone.css';
+
+const UploadDropzone = () => {
+  const [isDragging, setIsDragging] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const handleFileSelect = (file) => {
+    if (file && file.size > 0) {
+      setSelectedFile(file);
+      UploadManager.addUpload(file);
+    }
+  };
+
+  const handleFileInput = (e) => {
+    const file = e.target.files[0];
+    handleFileSelect(file);
+  };
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    const file = e.dataTransfer.files[0];
+    handleFileSelect(file);
+  };
+
+  const handleClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  return (
+    <div className="upload-container">
+      <div
+        className={`dropzone ${isDragging ? 'dragging' : ''}`}
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onClick={handleClick}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          onChange={handleFileInput}
+          className="file-input"
+          aria-label="Select file to upload"
+        />
+        <div className="dropzone-content">
+          <p>Drag & drop a file here, or click to select</p>
+          <p className="file-size-limit">Supports files up to 1GB</p>
+        </div>
+      </div>
+      
+      {selectedFile && (
+        <div className="selected-file">
+          <p>Selected: {selectedFile.name} ({(selectedFile.size / (1024 * 1024)).toFixed(2)} MB)</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default UploadDropzone;
+
+// src/components/UploadList.css
+.upload-list {
+  margin-top: 30px;
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.upload-list h2 {
+  margin-top: 0;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+// src/components/UploadList.js
+import React, { useEffect, useState } from 'react';
+import ActiveUpload from './ActiveUpload';
+import UploadManager from '../services/UploadManager';
+import './UploadList.css';
+
+const UploadList = () => {
+  const [uploads, setUploads] = useState([]);
+
+  // Initialize uploads from UploadManager
+  useEffect(() => {
+    setUploads(UploadManager.getUploads());
+    
+    // Listen for upload changes
+    const handleUploadUpdate = () => {
+      setUploads(UploadManager.getUploads());
+    };
+    
+    UploadManager.on('update', handleUploadUpdate);
+    
+    // Cleanup listener on unmount
+    return () => {
+      UploadManager.off('update', handleUploadUpdate);
+    };
+  }, []);
+
+  if (uploads.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="upload-list">
+      <h2>Active Uploads</h2>
+      {uploads.map(upload => (
+        <ActiveUpload key={upload.uploadId} upload={upload} />
+      ))}
+    </div>
+  );
+};
+
+export default UploadList;
+
+// src/components/UploadProgress.css
+.upload-progress {
+  margin-bottom: 15px;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9em;
+  color: #666;
+  margin-bottom: 5px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 20px;
+  background-color: #f0f0f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #007bff, #0056b3);
+  border-radius: 10px;
+  transition: width 0.3s ease;
+}
+
+// src/components/UploadProgress.js
+import React from 'react';
+import './UploadProgress.css';
+
+const UploadProgress = ({ upload }) => {
+  // Calculate progress percentage
+  const progress = upload.progress || 0;
+  const uploadedMB = (upload.uploadedBytes / (1024 * 1024)) || 0;
+  const totalMB = upload.filesize ? (upload.filesize / (1024 * 1024)) : 0;
+  
+  return (
+    <div className="upload-progress">
+      <div className="progress-info">
+        <span>{uploadedMB.toFixed(2)} MB / {totalMB.toFixed(2)} MB</span>
+        <span>{Math.round(progress)}%</span>
+      </div>
+      <div className="progress-bar">
+        <div 
+          className="progress-fill" 
+          style={{ width: `${progress}%` }}
+        ></div>
+      </div>
+    </div>
+  );
+};
+
+export default UploadProgress;
+
+// src/index.css
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f5f5f5;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.hidden {
+  display: none;
+}
+
+// src/index.js
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './index.css';
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+// src/services/UploadManager.js
+import axios from 'axios';
+import EventEmitter from 'events';
+
+class UploadManager extends EventEmitter {
+  constructor() {
+    super();
+    this.uploads = this.loadFromStorage();
+    // Use relative URL since setupProxy.js will handle routing to backend
+    const baseURL = '/api/uploads';
+    console.log('🔧 UploadManager baseURL:', baseURL);
+    
+    this.apiClient = axios.create({
+      baseURL: baseURL,
+      timeout: 30000,
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    });
+    
+    // Set up request interceptor for logging
+    this.apiClient.interceptors.request.use(
+      (config) => {
+        console.log('Request:', config.method?.toUpperCase(), config.url);
+        console.log('Full URL:', config.baseURL + config.url);
+        console.log('Base URL:', config.baseURL);
+        return config;
+      },
+      (error) => {
+        return Promise.reject(error);
+      }
+    );
+    
+    // Set up response interceptor for logging
+    this.apiClient.interceptors.response.use(
+      (response) => {
+        console.log('Response:', response.status, response.config.url);
+        return response;
+      },
+      (error) => {
+        console.error('API Error:', error);
+        return Promise.reject(error);
+      }
+    );
+  }
+  
+  // Load uploads from localStorage
+  loadFromStorage() {
+    try {
+      const stored = localStorage.getItem('resumableUploads');
+      return stored ? JSON.parse(stored) : {};
+    } catch (error) {
+      console.error('Error loading uploads from storage:', error);
+      return {};
+    }
+  }
+  
+  // Save uploads to localStorage
+  saveToStorage() {
+    try {
+      localStorage.setItem('resumableUploads', JSON.stringify(this.uploads));
+    } catch (error) {
+      console.error('Error saving uploads to storage:', error);
+    }
+  }
+  
+  // Get all uploads
+  getUploads() {
+    return Object.values(this.uploads);
+  }
+  
+  // Find upload by ID
+  getUpload(uploadId) {
+    return this.uploads[uploadId] || null;
+  }
+  
+  // Add new upload
+  async addUpload(file) {
+    const uploadId = this.generateUploadId();
+    
+    // Create upload object
+    const upload = {
+      uploadId,
+      file,
+      filename: file.name,
+      filetype: file.type,
+      filesize: file.size,
+      status: 'pending',
+      uploadedBytes: 0,
+      progress: 0,
+      uploadedChunks: [],
+      chunkSize: 5242880, // 5MB
+      totalChunks: Math.ceil(file.size / 5242880),
+      createdAt: new Date().toISOString()
+    };
+    
+    // Add to uploads
+    this.uploads[uploadId] = upload;
+    this.saveToStorage();
+    this.emit('update');
+    
+    // Initiate upload on server
+    try {
+      const response = await this.apiClient.post('/initiate', {
+        filename: file.name,
+        filetype: file.type,
+        filesize: file.size
+      });
+      
+      // Update upload with server response
+      this.uploads[uploadId].s3Key = response.data.s3Key;
+      this.saveToStorage();
+      this.emit('update');
+      
+      return uploadId;
+    } catch (error) {
+      console.error('Error initiating upload:', error);
+      this.removeUpload(uploadId);
+      throw error;
+    }
+  }
+  
+  // Remove upload
+  removeUpload(uploadId) {
+    delete this.uploads[uploadId];
+    this.saveToStorage();
+    this.emit('update');
+  }
+  
+  // Update upload status
+  async updateUploadStatus(uploadId, status) {
+    const upload = this.uploads[uploadId];
+    if (!upload) return;
+    
+    try {
+      await this.apiClient.post(`/${uploadId}/${status}`);
+      upload.status = status;
+      this.saveToStorage();
+      this.emit('update');
+    } catch (error) {
+      console.error(`Error updating upload status to ${status}:`, error);
+      throw error;
+    }
+  }
+  
+  // Pause upload
+  async pauseUpload(uploadId) {
+    return this.updateUploadStatus(uploadId, 'pause');
+  }
+  
+  // Resume upload
+  async resumeUpload(uploadId) {
+    return this.updateUploadStatus(uploadId, 'resume');
+  }
+  
+  // Cancel upload
+  async cancelUpload(uploadId) {
+    const upload = this.uploads[uploadId];
+    if (!upload) return;
+    
+    try {
+      await this.apiClient.delete(`/${uploadId}`);
+      this.removeUpload(uploadId);
+    } catch (error) {
+      console.error('Error canceling upload:', error);
+      this.removeUpload(uploadId);
+      throw error;
+    }
+  }
+  
+  // Upload chunks with retry logic
+  async uploadChunks(uploadId) {
+    const upload = this.uploads[uploadId];
+    console.log('🔄 uploadChunks called for:', uploadId, 'upload:', upload);
+    
+    if (!upload || upload.status !== 'uploading') {
+      console.log('❌ Upload not found or not in uploading status:', upload?.status);
+      return;
+    }
+    
+    // Get upload status from server to check progress
+    let status;
+    try {
+      console.log('📡 Getting upload status from server...');
+      const response = await this.apiClient.get(`/${uploadId}/status`);
+      status = response.data;
+      console.log('📊 Server status:', status);
+      upload.uploadedChunks = status.uploadedChunks;
+      upload.status = status.status;
+      this.saveToStorage();
+      this.emit('update');
+    } catch (error) {
+      console.error('Error getting upload status:', error);
+      // Continue with client-side progress if server is unreachable
+      status = upload;
+    }
+    
+    // Upload each unuploaded chunk
+    console.log(`📦 Starting chunk upload loop. Total chunks: ${upload.totalChunks}, Uploaded: [${upload.uploadedChunks.join(', ')}]`);
+    
+    for (let chunkIndex = 0; chunkIndex < upload.totalChunks; chunkIndex++) {
+      // Skip if chunk already uploaded
+      if (upload.uploadedChunks.includes(chunkIndex)) {
+        console.log(`⏭️ Skipping chunk ${chunkIndex} (already uploaded)`);
+        continue;
+      }
+      
+      console.log(`🚀 Uploading chunk ${chunkIndex}/${upload.totalChunks - 1}`);
+      
+      // Upload chunk with retry logic
+      const success = await this.uploadChunkWithRetry(uploadId, chunkIndex);
+      
+      if (!success) {
+        console.log(`❌ Chunk ${chunkIndex} upload failed, pausing upload`);
+        // Update status to paused if upload failed
+        upload.status = 'paused';
+        this.saveToStorage();
+        this.emit('update');
+        return;
+      }
+      
+      console.log(`✅ Chunk ${chunkIndex} uploaded successfully`);
+      
+      // Update progress
+      upload.uploadedBytes = (upload.uploadedChunks.length + 1) * upload.chunkSize;
+      upload.progress = (upload.uploadedBytes / upload.filesize) * 100;
+      console.log(`📈 Progress updated: ${upload.progress.toFixed(1)}%`);
+      this.saveToStorage();
+      this.emit('update');
+    }
+    
+    // Complete upload if all chunks are uploaded
+    if (upload.uploadedChunks.length === upload.totalChunks) {
+      try {
+        await this.apiClient.post(`/${uploadId}/complete`);
+        upload.status = 'completed';
+        this.saveToStorage();
+        this.emit('update');
+      } catch (error) {
+        console.error('Error completing upload:', error);
+        upload.status = 'failed';
+        this.saveToStorage();
+        this.emit('update');
+      }
+    }
+  }
+  
+  // Upload a single chunk with retry logic
+  async uploadChunkWithRetry(uploadId, chunkIndex) {
+    const upload = this.uploads[uploadId];
+    if (!upload) {
+      console.log('❌ Upload not found in uploadChunkWithRetry');
+      return false;
+    }
+    
+    const maxRetries = 5;
+    const baseDelay = 1000; // 1 second
+    const maxDelay = 30000; // 30 seconds
+    const jitter = 0.25; // 25% jitter
+    
+    // Calculate chunk start and end
+    const start = chunkIndex * upload.chunkSize;
+    const end = Math.min(start + upload.chunkSize, upload.filesize);
+    
+    console.log(`📦 Preparing chunk ${chunkIndex}: bytes ${start}-${end} (${end - start} bytes)`);
+    
+    // Create chunk blob
+    const chunk = upload.file.slice(start, end);
+    console.log('📄 Chunk blob created:', chunk.size, 'bytes');
+    
+    for (let retry = 0; retry <= maxRetries; retry++) {
+      try {
+        const formData = new FormData();
+        formData.append('chunk', chunk);
+        formData.append('chunkIndex', chunkIndex);
+        formData.append('totalChunks', upload.totalChunks);
+        
+        console.log(`🌐 Making POST request to: /${uploadId}/chunk (attempt ${retry + 1})`);
+        console.log('📋 FormData contents:', {
+          chunkSize: chunk.size,
+          chunkIndex,
+          totalChunks: upload.totalChunks
+        });
+        
+        const response = await this.apiClient.post(
+          `/${uploadId}/chunk`,
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            },
+            timeout: 60000
+          }
+        );
+        
+        console.log(`✅ Chunk ${chunkIndex} upload response:`, response.status, response.data);
+        
+        // Add chunk index to uploaded chunks
+        if (!upload.uploadedChunks.includes(chunkIndex)) {
+          upload.uploadedChunks.push(chunkIndex);
+          upload.uploadedChunks.sort((a, b) => a - b);
+        }
+        
+        this.saveToStorage();
+        this.emit('update');
+        
+        return true;
+      } catch (error) {
+        if (retry >= maxRetries) {
+          console.error(`Max retries exceeded for chunk ${chunkIndex}:`, error);
+          return false;
+        }
+        
+        // Calculate delay with exponential backoff and jitter
+        const delay = Math.min(
+          baseDelay * Math.pow(2, retry),
+          maxDelay
+        );
+        
+        // Add jitter (random variation)
+        const jitterDelay = delay * (1 + Math.random() * jitter * 2 - jitter);
+        
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, jitterDelay));
+        
+        console.log(`Retrying chunk ${chunkIndex} (attempt ${retry + 1})`);
+      }
+    }
+    
+    return false;
+  }
+  
+  // Generate unique upload ID using crypto for consistency with backend
+  generateUploadId() {
+    // Generate 12 random bytes and convert to hex (same as backend)
+    const array = new Uint8Array(12);
+    crypto.getRandomValues(array);
+    const hex = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    return 'upload_' + hex;
+  }
+  
+  // Start uploading
+  async startUpload(uploadId) {
+    const upload = this.uploads[uploadId];
+    if (!upload) return;
+    
+    upload.status = 'uploading';
+    this.saveToStorage();
+    this.emit('update');
+    
+    await this.uploadChunks(uploadId);
+  }
+}
+
+// Create singleton instance
+const uploadManager = new UploadManager();
+export default uploadManager;
+
+// src/setupProxy.js
+const { createProxyMiddleware } = require('http-proxy-middleware');
+
+module.exports = function(app) {
+  app.use(
+    '/api',
+    createProxyMiddleware({
+      target: 'http://localhost:4000',
+      changeOrigin: true,
+      logLevel: 'debug'
+    })
+  );
+};
+

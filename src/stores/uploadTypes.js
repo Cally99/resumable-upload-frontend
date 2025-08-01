@@ -1,4 +1,3 @@
-// Upload status constants
 export const UPLOAD_STATUS = {
   INITIATING: 'initiating',
   PENDING: 'pending',
@@ -9,7 +8,6 @@ export const UPLOAD_STATUS = {
   CANCELED: 'canceled'
 };
 
-// Upload action types for better debugging
 export const UPLOAD_ACTIONS = {
   ADD_UPLOAD: 'ADD_UPLOAD',
   UPDATE_UPLOAD: 'UPDATE_UPLOAD',

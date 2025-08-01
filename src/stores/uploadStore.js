@@ -3,23 +3,31 @@ import { devtools, persist } from 'zustand/middleware';
 import { UPLOAD_STATUS, UPLOAD_ACTIONS } from './uploadTypes';
 import { indexedDBService } from '../services/indexedDBService';
 
-// Initial state
-const initialState = {
-  uploads: {},
-  isLoading: false,
-  error: null,
-  isOffline: typeof navigator !== 'undefined' ? !navigator.onLine : false
+// Initial state for persistent data
+const initialPersistentState = {
+  uploads: {}
 };
 
-// Create the upload store
+// Initial state for transient UI state
+const initialUIState = {
+  isLoading: false,
+  error: null,
+  isOffline: typeof navigator !== 'undefined' ? !navigator.onLine : false,
+  isResuming: false,
+  dragOver: false
+};
+
 export const useUploadStore = create(
   devtools(
     persist(
       (set, get) => ({
-        // State
-        ...initialState,
+        // Persistent data
+        ...initialPersistentState,
+        
+        // Transient UI state
+        ui: { ...initialUIState },
 
-        // Selectors
+        // Simplified selectors
         getUploads: () => Object.values(get().uploads),
         getUpload: (uploadId) => get().uploads[uploadId] || null,
         getUploadsByStatus: (status) =>
@@ -28,10 +36,20 @@ export const useUploadStore = create(
           Object.values(get().uploads).filter(upload =>
             [UPLOAD_STATUS.UPLOADING, UPLOAD_STATUS.PENDING, UPLOAD_STATUS.PAUSED].includes(upload.status)
           ),
+        
+        getUIState: () => get().ui,
+        getIsResuming: () => get().ui.isResuming,
+        getDragOver: () => get().ui.dragOver,
 
-        // Actions
+        updateUpload: (uploadId, updates) =>
+          set(state => ({
+            uploads: {
+              ...state.uploads,
+              [uploadId]: { ...state.uploads[uploadId], ...updates }
+            }
+          }), false, { type: UPLOAD_ACTIONS.UPDATE_UPLOAD, uploadId, updates }),
+
         addUpload: (upload) => {
-          // Store file in IndexedDB if it exists and it's not a temporary upload
           if (upload.file && !upload.uploadId.startsWith('temp_')) {
             indexedDBService.storeFile(upload.uploadId, upload.file).catch(error => {
               console.error('Failed to store file in IndexedDB:', error);
@@ -43,8 +61,6 @@ export const useUploadStore = create(
               uploads: {
                 ...state.uploads,
                 [upload.uploadId]: {
-                  // per-upload guard flags
-                  isResuming: false,
                   needsFile: false,
                   ...upload,
                   createdAt: upload.createdAt || new Date().toISOString(),
@@ -59,28 +75,7 @@ export const useUploadStore = create(
           );
         },
 
-        updateUpload: (uploadId, updates) => {
-          set(
-            (state) => {
-              if (!state.uploads[uploadId]) return state;
-
-              return {
-                uploads: {
-                  ...state.uploads,
-                  [uploadId]: {
-                    ...state.uploads[uploadId],
-                    ...updates
-                  }
-                }
-              };
-            },
-            false,
-            { type: UPLOAD_ACTIONS.UPDATE_UPLOAD, uploadId, updates }
-          );
-        },
-
         removeUpload: (uploadId) => {
-          // Remove file from IndexedDB
           indexedDBService.deleteFile(uploadId).catch(error => {
             console.error('Failed to delete file from IndexedDB:', error);
           });
@@ -96,58 +91,40 @@ export const useUploadStore = create(
         },
 
         updateProgress: (uploadId, uploadedChunks, chunkSize, filesize) => {
+          const actualUploadedBytes = uploadedChunks.reduce((total, chunkIndex) => {
+            const chunkStart = chunkIndex * chunkSize;
+            const chunkEnd = Math.min(chunkStart + chunkSize, filesize);
+            return total + (chunkEnd - chunkStart);
+          }, 0);
+
+          const progress = Math.min((actualUploadedBytes / filesize) * 100, 100);
+
           set(
-            (state) => {
-              if (!state.uploads[uploadId]) return state;
-
-              // Calculate accurate progress
-              const actualUploadedBytes = uploadedChunks.reduce((total, chunkIndex) => {
-                const chunkStart = chunkIndex * chunkSize;
-                const chunkEnd = Math.min(chunkStart + chunkSize, filesize);
-                return total + (chunkEnd - chunkStart);
-              }, 0);
-
-              const progress = Math.min((actualUploadedBytes / filesize) * 100, 100);
-
-              return {
-                uploads: {
-                  ...state.uploads,
-                  [uploadId]: {
-                    ...state.uploads[uploadId],
-                    uploadedChunks: [...uploadedChunks].sort((a, b) => a - b),
-                    uploadedBytes: actualUploadedBytes,
-                    progress: progress
-                  }
+            (state) => ({
+              uploads: {
+                ...state.uploads,
+                [uploadId]: {
+                  ...state.uploads[uploadId],
+                  uploadedChunks: [...uploadedChunks].sort((a, b) => a - b),
+                  uploadedBytes: actualUploadedBytes,
+                  progress
                 }
-              };
-            },
+              }
+            }),
             false,
             { type: UPLOAD_ACTIONS.UPDATE_PROGRESS, uploadId }
           );
         },
 
-        setUploadStatus: (uploadId, status) => {
-          set(
-            (state) => {
-              if (!state.uploads[uploadId]) return state;
-
-              return {
-                uploads: {
-                  ...state.uploads,
-                  [uploadId]: {
-                    ...state.uploads[uploadId],
-                    status
-                  }
-                }
-              };
-            },
-            false,
-            { type: UPLOAD_ACTIONS.SET_STATUS, uploadId, status }
-          );
-        },
+        setUploadStatus: (uploadId, status) =>
+          set(state => ({
+            uploads: {
+              ...state.uploads,
+              [uploadId]: { ...state.uploads[uploadId], status }
+            }
+          }), false, { type: UPLOAD_ACTIONS.SET_STATUS, uploadId, status }),
 
         clearAllUploads: () => {
-          // Clear all files from IndexedDB
           indexedDBService.clearAllFiles().catch(error => {
             console.error('Failed to clear files from IndexedDB:', error);
           });
@@ -159,23 +136,31 @@ export const useUploadStore = create(
           );
         },
 
-        setLoading: (isLoading) => {
-          set({ isLoading });
-        },
+        // UI state actions
+        updateUIState: (updates) =>
+          set(state => ({ ui: { ...state.ui, ...updates } })),
+          
+        setResuming: (isResuming) =>
+          set(state => ({ ui: { ...state.ui, isResuming } })),
+          
+        setDragOver: (dragOver) =>
+          set(state => ({ ui: { ...state.ui, dragOver } })),
+          
+        setLoading: (isLoading) =>
+          set(state => ({ ui: { ...state.ui, isLoading } })),
+          
+        setError: (error) =>
+          set(state => ({ ui: { ...state.ui, error } })),
+          
+        clearError: () =>
+          set(state => ({ ui: { ...state.ui, error: null } })),
+          
+        setOffline: () =>
+          set(state => ({ ui: { ...state.ui, isOffline: true } })),
+          
+        setOnline: () =>
+          set(state => ({ ui: { ...state.ui, isOffline: false } })),
 
-        setError: (error) => {
-          set({ error });
-        },
-
-        clearError: () => {
-          set({ error: null });
-        },
-
-        // New: offline/online flags
-        setOffline: () => set({ isOffline: true }),
-        setOnline: () => set({ isOffline: false }),
-
-        // New: pause all uploading uploads (optionally with reason)
         markAllUploadingAsPaused: (reason = 'offline') => {
           set((state) => {
             const updated = { ...state.uploads };
@@ -193,9 +178,8 @@ export const useUploadStore = create(
           });
         },
 
-        // Utility actions
         clearStaleUploads: (file) => {
-          const staleCutoff = Date.now() - (24 * 60 * 60 * 1000); // 24 hours ago
+          const staleCutoff = Date.now() - (24 * 60 * 60 * 1000);
 
           set(
             (state) => {
@@ -205,7 +189,6 @@ export const useUploadStore = create(
                   const isStale = new Date(upload.createdAt).getTime() < staleCutoff;
                   const isFailedOrCanceled = [UPLOAD_STATUS.FAILED, UPLOAD_STATUS.CANCELED].includes(upload.status);
 
-                  // Keep upload if it's NOT the same file OR NOT stale AND NOT failed/canceled
                   return !(isSameFile && (isStale || isFailedOrCanceled));
                 })
               );
@@ -218,40 +201,43 @@ export const useUploadStore = create(
         }
       }),
       {
-        name: 'resumable-uploads', // localStorage key
-        // Persist all upload metadata; files are stored in IndexedDB
+        name: 'resumable-uploads',
         partialize: (state) => {
+          // Only persist uploads data, not UI state
           const safeUploads = {};
           for (const [id, u] of Object.entries(state.uploads || {})) {
-            const { file, isResuming, ...rest } = u; // strip non-serializable file; isResuming is transient UI guard
+            const { file, ...rest } = u;
             safeUploads[id] = rest;
           }
           return { uploads: safeUploads };
         },
-        version: 4,
+        version: 5,
         migrate: (persistedState, version) => {
-          // Handle migration from previous versions
           if (persistedState && persistedState.uploads) {
             const cleaned = {};
             for (const [id, u] of Object.entries(persistedState.uploads)) {
               const { file, isResuming, ...rest } = u || {};
               cleaned[id] = rest;
-              // For version 4, we no longer need needsFile flag since files are in IndexedDB
               if (version < 4) {
                 cleaned[id].needsFile = false;
               }
             }
             persistedState.uploads = cleaned;
           }
+          
+          // Initialize UI state if migrating from older version
+          if (version < 5) {
+            persistedState.ui = initialUIState;
+          }
+          
           return persistedState;
         },
-        // Custom onRehydrate function to restore files from IndexedDB
         onRehydrateStorage: () => (state) => {
-          // This function will be called after the state is rehydrated from localStorage
-          // We'll use it to restore files from IndexedDB
           if (state && state.uploads) {
-            // We'll handle file restoration in the initAfterRehydrate function
-            // to ensure proper async handling
+            // Ensure UI state is properly initialized
+            if (!state.ui) {
+              state.ui = { ...initialUIState };
+            }
           }
           return state;
         }
@@ -264,7 +250,6 @@ export const useUploadStore = create(
   )
 );
 
-// Export actions separately for better organization
 export const uploadStoreActions = {
   addUpload: useUploadStore.getState().addUpload,
   updateUpload: useUploadStore.getState().updateUpload,
@@ -275,5 +260,8 @@ export const uploadStoreActions = {
   clearStaleUploads: useUploadStore.getState().clearStaleUploads,
   setOffline: useUploadStore.getState().setOffline,
   setOnline: useUploadStore.getState().setOnline,
-  markAllUploadingAsPaused: useUploadStore.getState().markAllUploadingAsPaused
+  markAllUploadingAsPaused: useUploadStore.getState().markAllUploadingAsPaused,
+  updateUIState: useUploadStore.getState().updateUIState,
+  setResuming: useUploadStore.getState().setResuming,
+  setDragOver: useUploadStore.getState().setDragOver
 };

@@ -1,4 +1,3 @@
-// IndexedDB service for storing File objects
 const DB_NAME = 'ResumableUploadDB';
 const DB_VERSION = 1;
 const STORE_NAME = 'files';
@@ -9,7 +8,6 @@ class IndexedDBService {
     this.initPromise = null;
   }
 
-  // Initialize the database
   async init() {
     if (this.initPromise) {
       return this.initPromise;
@@ -19,7 +17,6 @@ class IndexedDBService {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
 
       request.onerror = (event) => {
-        console.error('IndexedDB error:', event.target.error);
         reject(event.target.error);
       };
 
@@ -31,7 +28,6 @@ class IndexedDBService {
       request.onupgradeneeded = (event) => {
         const db = event.target.result;
         
-        // Create object store if it doesn't exist
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           const store = db.createObjectStore(STORE_NAME, { keyPath: 'uploadId' });
           store.createIndex('filename', 'filename', { unique: false });
@@ -44,7 +40,6 @@ class IndexedDBService {
     return this.initPromise;
   }
 
-  // Store a file in IndexedDB
   async storeFile(uploadId, file) {
     await this.init();
     
@@ -68,7 +63,6 @@ class IndexedDBService {
     });
   }
 
-  // Retrieve a file from IndexedDB
   async getFile(uploadId) {
     await this.init();
     
@@ -90,7 +84,6 @@ class IndexedDBService {
     });
   }
 
-  // Delete a file from IndexedDB
   async deleteFile(uploadId) {
     await this.init();
     
@@ -105,7 +98,6 @@ class IndexedDBService {
     });
   }
 
-  // Get all files from IndexedDB
   async getAllFiles() {
     await this.init();
     
@@ -126,7 +118,6 @@ class IndexedDBService {
     });
   }
 
-  // Clear all files from IndexedDB
   async clearAllFiles() {
     await this.init();
     
@@ -141,7 +132,6 @@ class IndexedDBService {
     });
   }
 
-  // Clean up old files (older than specified days)
   async cleanupOldFiles(days = 7) {
     await this.init();
     
@@ -172,6 +162,5 @@ class IndexedDBService {
   }
 }
 
-// Export singleton instance
 export const indexedDBService = new IndexedDBService();
 export default indexedDBService;

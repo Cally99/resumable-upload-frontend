@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import UploadControls from './UploadControls';
 import UploadProgress from './UploadProgress';
 import { useUpload } from '../hooks/useUploads';
 import './ActiveUpload.css';
 
 const ActiveUpload = ({ uploadId }) => {
-  const { upload, startUpload, pauseUpload, resumeUpload, cancelUpload, removeUpload } = useUpload(uploadId);
-  const [isResuming, setIsResuming] = useState(false);
+  const { upload, isResuming, startUpload, pauseUpload, resumeUpload, cancelUpload, removeUpload } = useUpload(uploadId);
 
   if (!upload) {
     return null;
@@ -29,15 +28,10 @@ const ActiveUpload = ({ uploadId }) => {
   };
 
   const handleResume = async () => {
-    if (isResuming) return; // Prevent multiple resume attempts
-    
-    setIsResuming(true);
     try {
       await resumeUpload();
     } catch (error) {
       console.error('Error resuming upload:', error);
-    } finally {
-      setIsResuming(false);
     }
   };
 
@@ -57,11 +51,9 @@ const ActiveUpload = ({ uploadId }) => {
     }
   };
 
-  // Format error message for display
   const getErrorMessage = () => {
     if (!upload.lastError) return null;
     
-    // Make error messages more user-friendly
     let message = upload.lastError;
     if (message.includes('Failed to reconcile status')) {
       message = 'Unable to check upload status. Please check your connection and try again.';

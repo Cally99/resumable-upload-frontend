@@ -4,13 +4,15 @@ import { uploadActions } from '../stores/uploadActions';
 // Main hook for upload operations
 export const useUploads = () => {
   const uploads = useUploadStore(state => state.getUploads());
-  const isLoading = useUploadStore(state => state.isLoading);
-  const error = useUploadStore(state => state.error);
+  const uiState = useUploadStore(state => state.getUIState());
   
   return {
     uploads,
-    isLoading,
-    error,
+    isLoading: uiState.isLoading,
+    error: uiState.error,
+    isOffline: uiState.isOffline,
+    isResuming: uiState.isResuming,
+    dragOver: uiState.dragOver,
     addUpload: uploadActions.initiateUpload,
     startUpload: uploadActions.startUpload,
     pauseUpload: uploadActions.pauseUpload,
@@ -23,9 +25,11 @@ export const useUploads = () => {
 // Hook for specific upload
 export const useUpload = (uploadId) => {
   const upload = useUploadStore(state => state.getUpload(uploadId));
+  const isResuming = useUploadStore(state => state.getIsResuming());
   
   return {
     upload,
+    isResuming,
     startUpload: () => uploadActions.startUpload(uploadId),
     pauseUpload: () => uploadActions.pauseUpload(uploadId),
     resumeUpload: () => uploadActions.resumeUpload(uploadId),
@@ -44,4 +48,22 @@ export const useActiveUploads = () => {
 export const useUploadsByStatus = (status) => {
   const uploads = useUploadStore(state => state.getUploadsByStatus(status));
   return uploads;
+};
+
+// Hook for UI state
+export const useUIState = () => {
+  const uiState = useUploadStore(state => state.getUIState());
+  const { updateUIState, setResuming, setDragOver, setLoading, setError, clearError, setOffline, setOnline } = useUploadStore.getState();
+  
+  return {
+    uiState,
+    updateUIState,
+    setResuming,
+    setDragOver,
+    setLoading,
+    setError,
+    clearError,
+    setOffline,
+    setOnline
+  };
 };

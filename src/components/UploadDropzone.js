@@ -1,63 +1,83 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useUploads } from '../hooks/useUploads';
 import './UploadDropzone.css';
 
 const UploadDropzone = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef(null);
   const { addUpload } = useUploads();
 
-  const handleFileSelect = async (file) => {
-    if (file && file.size > 0) {
-      setSelectedFile(file);
-      try {
-        await addUpload(file);
-      } catch (error) {
-        console.error('Error adding upload:', error);
+  const handleFileSelect = useCallback(async (file) => {
+    // Prevent multiple file selections while processing
+    if (isProcessing) return;
+    
+    // Validate file
+    if (!file || file.size === 0) {
+      console.error('Invalid file selected');
+      return;
+    }
+
+    setIsProcessing(true);
+    setSelectedFile(file);
+    
+    try {
+      await addUpload(file);
+    } catch (error) {
+      console.error('Error adding upload:', error);
+      // Reset selected file on error
+      setSelectedFile(null);
+    } finally {
+      setIsProcessing(false);
+      // Reset file input value to allow selecting the same file again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
       }
     }
-  };
+  }, [addUpload, isProcessing]);
 
-  const handleFileInput = (e) => {
+  const handleFileInput = useCallback((e) => {
     const file = e.target.files[0];
     handleFileSelect(file);
-  };
+  }, [handleFileSelect]);
 
-  const handleDragEnter = (e) => {
+  const handleDragEnter = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
-  };
+  }, []);
 
-  const handleDragLeave = (e) => {
+  const handleDragLeave = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-  };
+  }, []);
 
-  const handleDragOver = (e) => {
+  const handleDragOver = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
-  };
+  }, []);
 
-  const handleDrop = (e) => {
+  const handleDrop = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
     
     const file = e.dataTransfer.files[0];
     handleFileSelect(file);
-  };
+  }, [handleFileSelect]);
 
-  const handleClick = () => {
-    fileInputRef.current?.click();
-  };
+  const handleClick = useCallback(() => {
+    if (!isProcessing) {
+      fileInputRef.current?.click();
+    }
+  }, [isProcessing]);
 
   return (
     <div className="upload-container">
       <div
-        className={`dropzone ${isDragging ? 'dragging' : ''}`}
+        className={`dropzone ${isDragging ? 'dragging' : ''} ${isProcessing ? 'processing' : ''}`}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -70,10 +90,17 @@ const UploadDropzone = () => {
           onChange={handleFileInput}
           className="file-input"
           aria-label="Select file to upload"
+          disabled={isProcessing}
         />
         <div className="dropzone-content">
-          <p>Drag & drop a file here, or click to select</p>
-          <p className="file-size-limit">Supports files up to 1GB</p>
+          {isProcessing ? (
+            <p>Processing file...</p>
+          ) : (
+            <>
+              <p>Drag & drop a file here, or click to select</p>
+              <p className="file-size-limit">Supports files up to 1GB</p>
+            </>
+          )}
         </div>
       </div>
       

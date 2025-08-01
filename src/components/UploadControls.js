@@ -22,7 +22,6 @@ const UploadControls = ({ upload, onUpload, onPause, onResume, onCancel, onRemov
     if (onRemove) onRemove(upload);
   };
 
-  // Disable buttons when resuming to prevent multiple actions
   const isDisabled = isResuming || upload.status === 'initiating';
 
   return (
@@ -58,7 +57,6 @@ const UploadControls = ({ upload, onUpload, onPause, onResume, onCancel, onRemov
         </button>
       )}
 
-      {/* Always show Remove button so user can remove any active upload */}
       <button onClick={handleRemove} className="btn btn-warning" disabled={isDisabled}>
         Remove
       </button>

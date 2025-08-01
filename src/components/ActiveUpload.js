@@ -1,44 +1,53 @@
 import React from 'react';
 import UploadControls from './UploadControls';
 import UploadProgress from './UploadProgress';
-import uploadManager from '../services/UploadManager';
+import { useUpload } from '../hooks/useUploads';
 import './ActiveUpload.css';
 
-const ActiveUpload = ({ upload }) => {
-  // Create callback functions that connect to UploadManager methods
-  const handleUpload = async (upload) => {
-    console.log('🚀 Starting upload for:', upload.uploadId);
+const ActiveUpload = ({ uploadId }) => {
+  const { upload, startUpload, pauseUpload, resumeUpload, cancelUpload, removeUpload } = useUpload(uploadId);
+
+  if (!upload) {
+    return null;
+  }
+
+  const handleUpload = async () => {
     try {
-      await uploadManager.startUpload(upload.uploadId);
+      await startUpload();
     } catch (error) {
       console.error('Error starting upload:', error);
     }
   };
 
-  const handlePause = async (upload) => {
-    console.log('⏸️ Pausing upload for:', upload.uploadId);
+  const handlePause = async () => {
     try {
-      await uploadManager.pauseUpload(upload.uploadId);
+      await pauseUpload();
     } catch (error) {
       console.error('Error pausing upload:', error);
     }
   };
 
-  const handleResume = async (upload) => {
-    console.log('▶️ Resuming upload for:', upload.uploadId);
+  const handleResume = async () => {
     try {
-      await uploadManager.resumeUpload(upload.uploadId);
+      await resumeUpload();
     } catch (error) {
       console.error('Error resuming upload:', error);
     }
   };
 
-  const handleCancel = async (upload) => {
-    console.log('❌ Canceling upload for:', upload.uploadId);
+  const handleCancel = async () => {
     try {
-      await uploadManager.cancelUpload(upload.uploadId);
+      await cancelUpload();
     } catch (error) {
       console.error('Error canceling upload:', error);
+    }
+  };
+
+  const handleRemove = async () => {
+    try {
+      await removeUpload();
+    } catch (error) {
+      console.error('Error removing upload:', error);
     }
   };
 
@@ -58,6 +67,7 @@ const ActiveUpload = ({ upload }) => {
         onPause={handlePause}
         onResume={handleResume}
         onCancel={handleCancel}
+        onRemove={handleRemove}
       />
       
       <div className="upload-details">

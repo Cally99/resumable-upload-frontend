@@ -39,3 +39,13 @@
 .btn-danger:hover {
   background-color: #c82333;
 }
+
+/* New style to make Remove button clearly visible */
+.btn-warning {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+.btn-warning:hover {
+  background-color: #e0a800;
+}

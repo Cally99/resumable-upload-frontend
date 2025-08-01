@@ -1,16 +1,21 @@
 import React, { useState, useRef } from 'react';
-import UploadManager from '../services/UploadManager';
+import { useUploads } from '../hooks/useUploads';
 import './UploadDropzone.css';
 
 const UploadDropzone = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const fileInputRef = useRef(null);
+  const { addUpload } = useUploads();
 
-  const handleFileSelect = (file) => {
+  const handleFileSelect = async (file) => {
     if (file && file.size > 0) {
       setSelectedFile(file);
-      UploadManager.addUpload(file);
+      try {
+        await addUpload(file);
+      } catch (error) {
+        console.error('Error adding upload:', error);
+      }
     }
   };
 

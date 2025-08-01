@@ -1,27 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import ActiveUpload from './ActiveUpload';
-import UploadManager from '../services/UploadManager';
+import { useUploads } from '../hooks/useUploads';
 import './UploadList.css';
 
 const UploadList = () => {
-  const [uploads, setUploads] = useState([]);
-
-  // Initialize uploads from UploadManager
-  useEffect(() => {
-    setUploads(UploadManager.getUploads());
-    
-    // Listen for upload changes
-    const handleUploadUpdate = () => {
-      setUploads(UploadManager.getUploads());
-    };
-    
-    UploadManager.on('update', handleUploadUpdate);
-    
-    // Cleanup listener on unmount
-    return () => {
-      UploadManager.off('update', handleUploadUpdate);
-    };
-  }, []);
+  const { uploads } = useUploads();
 
   if (uploads.length === 0) {
     return null;
@@ -31,7 +14,7 @@ const UploadList = () => {
     <div className="upload-list">
       <h2>Active Uploads</h2>
       {uploads.map(upload => (
-        <ActiveUpload key={upload.uploadId} upload={upload} />
+        <ActiveUpload key={upload.uploadId} uploadId={upload.uploadId} />
       ))}
     </div>
   );
